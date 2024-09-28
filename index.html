@@ -24,6 +24,10 @@
             font-size: 20px;
             font-weight: bold;
         }
+        #canvas {
+    display: none;
+}
+
     </style>
 </head>
 <body>
@@ -45,6 +49,7 @@
         });
 
         function startCamera() {
+            
             navigator.mediaDevices.getUserMedia({
                 video: true
             }).then((stream) => {
@@ -86,12 +91,14 @@
             const rightHip = keypoints.find(k => k.part === 'rightHip');
 
             if (isPostureCorrect(leftShoulder, rightShoulder, leftHip, rightHip)) {
-                statusElement.innerHTML = "Posture is correct!";
-                statusElement.style.color = "green";
-            } else {
-                statusElement.innerHTML = "Incorrect posture!";
-                statusElement.style.color = "red";
-            }
+    statusElement.innerHTML = "Posture is correct!";
+    statusElement.style.backgroundColor = "green"; // Green background for correct posture
+    statusElement.style.color = "white"; // White text
+} else {
+    statusElement.innerHTML = "Incorrect posture!";
+    statusElement.style.backgroundColor = "red"; // Red background for incorrect posture
+    statusElement.style.color = "white"; // White text
+}
 
             // Update every 200ms
             setTimeout(detectPosture, 200);
