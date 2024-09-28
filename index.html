@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posture Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        video, canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <div id="status">Checking posture...</div>
+
+    <script>
+        const videoElement = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusElement = document.getElementById('status');
+
+        let net;
+        posenet.load().then(function (model) {
+            console.log("PoseNet model loaded successfully");
+            net = model;
+            startCamera();
+        });
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({
+                video: true
+            }).then((stream) => {
+                videoElement.srcObject = stream;
+
+                // Wait for video to be fully loaded
+                videoElement.onloadedmetadata = () => {
+                    console.log("Camera feed started, video ready");
+                    // Ensure canvas size matches video dimensions
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+
+                    // Start detecting posture
+                    detectPosture();
+                };
+            }).catch((err) => {
+                console.error("Error: Unable to access the camera.", err);
+                alert("Unable to access the camera.");
+            });
+        }
+
+        async function detectPosture() {
+            if (!videoElement.videoWidth || !videoElement.videoHeight) {
+                console.warn("Video dimensions are not valid yet.");
+                return;
+            }
+
+            const pose = await net.estimateSinglePose(videoElement, {
+                flipHorizontal: false
+            });
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+            const keypoints = pose.keypoints;
+            const leftShoulder = keypoints.find(k => k.part === 'leftShoulder');
+            const rightShoulder = keypoints.find(k => k.part === 'rightShoulder');
+            const leftHip = keypoints.find(k => k.part === 'leftHip');
+            const rightHip = keypoints.find(k => k.part === 'rightHip');
+
+            if (isPostureCorrect(leftShoulder, rightShoulder, leftHip, rightHip)) {
+                statusElement.innerHTML = "Posture is correct!";
+                statusElement.style.color = "green";
+            } else {
+                statusElement.innerHTML = "Incorrect posture!";
+                statusElement.style.color = "red";
+            }
+
+            // Update every 200ms
+            setTimeout(detectPosture, 200);
+        }
+
+        function isPostureCorrect(leftShoulder, rightShoulder, leftHip, rightHip) {
+            if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) {
+                console.warn("One or more keypoints are not detected");
+                return false;
+            }
+
+            const shoulderDiff = Math.abs(leftShoulder.position.y - rightShoulder.position.y);
+            const hipDiff = Math.abs(leftHip.position.y - rightHip.position.y);
+
+            const threshold = 30; // Allowable margin of error in pixels
+            return shoulderDiff < threshold && hipDiff < threshold;
+        }
+    </script>
+</body>
+</html>
